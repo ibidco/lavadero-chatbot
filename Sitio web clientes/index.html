@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Estado del Vehículo</title>
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- Importar Google Maps API -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBSlinPlVCfoEYIHRp2LN_8pVyNKsrLZbccallback=initMap" async defer></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Consulta el estado de tu vehículo</h1>
+
+        <!-- Formulario para consultar el estado -->
+        <div class="form">
+            <label for="plate">Placa del vehículo:</label>
+            <input type="text" id="plate" placeholder="Ej. ABC1234">
+            <button id="checkStatusBtn">Consultar Estado</button>
+        </div>
+
+        <!-- Mostrar el estado del vehículo -->
+        <div id="vehicleStatus"></div>
+
+        <!-- Tarjeta de lugares cercanos (oculta inicialmente) -->
+        <div id="places" class="places" style="display:none; margin-top: 20px;">
+            <div class="places-card">
+                <h2>Lugares cercanos</h2>
+                
+                <h3>Cafés:</h3>
+                <div>
+                    <a href="https://www.google.com/maps?q=Café+San+Alberto,+Carrera+15+%23118-16,+Bogotá" target="_blank">Café San Alberto - Carrera 15 #118-16</a>
+                </div>
+                <div>
+                    <a href="https://www.google.com/maps?q=El+Pan+de+la+Casa+Café,+Carrera+19+%23120-34,+Bogotá" target="_blank">El Pan de la Casa Café - Carrera 19 #120-34</a>
+                </div>
+                <div>
+                    <a href="https://www.google.com/maps?q=Café+de+la+Finca,+Calle+116+%2315A-65,+Bogotá" target="_blank">Café de la Finca - Calle 116 #15A-65</a>
+                </div>
+
+                <h3>Supermercados:</h3>
+                <div>
+                    <a href="https://www.google.com/maps?q=Carrefour+Express,+Calle+116+%2316-54,+Bogotá" target="_blank">Carrefour Express - Calle 116 #16-54</a>
+                </div>
+                <div>
+                    <a href="https://www.google.com/maps?q=Surtimax,+Calle+116+%2314-30,+Bogotá" target="_blank">Surtimax - Calle 116 #14-30</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mapa de Google -->
+        <div id="map" style="height: 400px; width: 100%; margin-top: 20px;"></div>
+    </div>
+
+    <!-- Importar Firebase desde CDN (modular) -->
+    <script type="module">
+        // Importar los módulos necesarios de Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.21.0/firebase-app.js";
+        import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/9.21.0/firebase-database.js";
+
+        // Configuración de Firebase (reemplaza con tus credenciales)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBDJyIFVcyz0jdMqP8jIKkBayQkbapvn48",
+            authDomain: "wash-station-e7113.firebaseapp.com",
+            databaseURL: "https://wash-station-e7113-default-rtdb.firebaseio.com",
+            projectId: "wash-station-e7113",
+            storageBucket: "wash-station-e7113.appspot.com",
+            messagingSenderId: "703456162474",
+            appId: "1:703456162474:web:7c4bd5c101578c61a896d3",
+            measurementId: "G-CJPD947Q86"
+        };
+
+        // Inicializar Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        // Tiempos estimados para cada proceso
+        const processTimes = {
+            "en espera": 7,        // 5 minutos
+            "lavado exterior": 10,  // 10 minutos
+            "limpieza interior": 8, // 7 minutos
+            "secado": 6,           // 4 minutos
+            "listo": 0             // 0 minutos
+        };
+
+        // Sumar todos los tiempos de los procesos para obtener el tiempo total
+        const totalEstimatedTime = processTimes["en espera"] + processTimes["lavado exterior"] + processTimes["limpieza interior"] + processTimes["secado"];
+
+        // Función para consultar el estado del vehículo
+        document.getElementById("checkStatusBtn").addEventListener("click", checkVehicleStatus);
+
+        function checkVehicleStatus() {
+            let plate = document.getElementById('plate').value.trim();
+
+            if (plate === '') {
+                alert('Por favor ingrese una placa');
+                return;
+            }
+
+            // Normalizar la placa (mayúsculas y eliminar espacios)
+            plate = plate.replace(/\s+/g, '').toUpperCase();
+
+            const vehicleRef = ref(database, 'vehicles/' + plate);
+
+            // Consultar los datos de la base de datos
+            get(vehicleRef)
+                .then((snapshot) => {
+                    if (snapshot.exists()) {
+                        const vehicleData = snapshot.val();
+                        const vehicleStatus = vehicleData.status;
+                        const timestamp = vehicleData.timestamp;
+                        const formattedTimestamp = formatTimestampToColombia(timestamp);
+                        let timeEstimate = totalEstimatedTime; // El tiempo total ahora es la suma de todos los procesos
+                        const currentTime = Date.now(); // Obtener la hora actual
+                        
+                        // Calcular el tiempo transcurrido en minutos
+                        let timeElapsed = (currentTime - timestamp) / 60000; // en minutos
+
+                        // Condicional para limitar el tiempo transcurrido
+                        if (timeElapsed > timeEstimate) {
+                            timeElapsed = timeEstimate; // Si el tiempo transcurrido es mayor que el estimado, usar el estimado
+                        }
+
+                        // Si el estado es "listo", la barra debe estar al 100%
+                        const progressPercentage = (vehicleStatus === "listo") ? 100 : Math.min(100, (timeElapsed / timeEstimate) * 100);
+
+                        // Mostrar la tarjeta con el estado
+                        displayVehicleStatus(vehicleStatus, formattedTimestamp, plate, timeEstimate, timeElapsed, progressPercentage);
+
+                        // Mostrar lugares cercanos
+                        document.getElementById('places').style.display = 'block';  // Mostrar los lugares
+
+                        // Desplazar la vista para mantener el formulario visible
+                        document.getElementById('checkStatusBtn').scrollIntoView({ behavior: "smooth" });
+                    } else {
+                        document.getElementById('vehicleStatus').innerHTML = ` 
+                            <div class="status-card">
+                                <h3>Placa: ${plate}</h3>
+                                <p>No se encontró información para esta placa.</p>
+                            </div>
+                        `;
+                    }
+                })
+                .catch((error) => {
+                    console.error("Error al obtener los datos:", error);
+                    document.getElementById('vehicleStatus').innerHTML = ` 
+                        <p>Hubo un error al consultar el estado del vehículo.</p>
+                    `;
+                });
+        }
+
+        // Función para convertir el timestamp a formato legible para Colombia
+        function formatTimestampToColombia(timestamp) {
+            const date = new Date(timestamp);
+            return new Intl.DateTimeFormat('es-CO', {
+                weekday: 'short',
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: 'numeric',
+                second: 'numeric',
+                hour12: true
+            }).format(date);
+        }
+
+        function displayVehicleStatus(status, formattedTimestamp, plate, timeEstimate, timeElapsed, progressPercentage) {
+            const statusCard = document.getElementById('vehicleStatus');
+            const processOrder = ["en espera", "lavado exterior", "limpieza interior", "secado", "listo"];
+
+            let statusClass = ''; // Variable para la clase de estado
+
+            if (status === 'listo') {
+                statusClass = 'status-listo';  // Clase para estado listo
+            } else {
+                statusClass = 'status-en-proceso';  // Clase para otros estados
+            }
+
+            const processList = processOrder.map((process, index) => {
+                const isCurrentProcess = process === status;
+                const processClass = isCurrentProcess ? 'current-process' : '';
+                return `  
+                    <div class="process-item ${processClass}">
+                        <span>${process}</span>
+                    </div>
+                `;  
+            }).join('');
+
+            statusCard.innerHTML = `
+                <div class="status-card">
+                    <h3>Estado de la Placa: ${plate}</h3>
+                    <p class="status ${statusClass}">${status}</p>
+                    <p>Última actualización: ${formattedTimestamp}</p>
+                    <p>Tiempo estimado total: ${timeEstimate} minutos</p>
+                    <p>Tiempo transcurrido: ${Math.floor(timeElapsed)} minutos</p>
+                    <div class="progress-container">
+                        <progress value="${Math.floor(progressPercentage)}" max="100"></progress>
+                    </div>
+
+                    <div class="process-list">
+                        ${processList}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Función para inicializar el mapa
+        function initMap() {
+            const location = { lat: 4.7059, lng: -74.0464 };
+            const map = new google.maps.Map(document.getElementById("map"), {
+                zoom: 15,
+                center: location,
+            });
+            new google.maps.Marker({
+                position: location,
+                map: map,
+                title: "Ac 116 #13-39, Bogotá",
+            });
+        }
+    </script>
+</body>
+</html>

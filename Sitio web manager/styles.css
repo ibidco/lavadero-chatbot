@@ -1,0 +1,165 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f0f0f0;
+    color: #333;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+
+.container {
+    text-align: center;
+    padding: 20px;
+    background-color: white;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+}
+
+h1 {
+    color: #1D70B8;
+    margin-bottom: 20px;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+label {
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+input,
+select {
+    padding: 10px;
+    font-size: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    width: 100%;  /* Aseguramos que ambos elementos tengan el mismo tamaño */
+    box-sizing: border-box;  /* Importante para mantener el ancho dentro de los límites */
+}
+
+select {
+    appearance: none; /* Elimina el estilo predeterminado del select */
+    background-color: #fff; /* Fondo blanco */
+    background-image: url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20d%3D%22M3.9%202.3l2.1%202.3h2.9L10.1%202.3%2011.5%203.7l-4%204.6H4.4L.5%203.7z%22/%3E%3C/svg%3E');  /* Agrega una flecha personalizada */
+    background-repeat: no-repeat;
+    background-position: right 10px center; /* Ajustamos la posición de la flecha */
+    background-size: 12px; /* Tamaño de la flecha */
+    cursor: pointer;  /* Cambiar el cursor cuando se pasa por encima */
+}
+
+input {
+    padding: 10px;
+    font-size: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+button {
+    background-color: #1D70B8;
+    color: white;
+    border: none;
+    padding: 10px;
+    font-size: 1rem;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+button:hover {
+    background-color: #155a8a;
+}
+
+/* Tarjeta de estado del vehículo */
+.status-card {
+    background-color: #fff;
+    border: 1px solid #ccc;
+    padding: 20px;
+    border-radius: 8px;
+    margin-top: 20px;
+    text-align: left;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.status-card h3 {
+    color: #1D70B8;
+    margin-bottom: 10px;
+}
+
+/* Resaltar el estado */
+.status {
+    font-size: 1.5rem;
+    font-weight: bold;
+    padding: 10px;
+    border-radius: 5px;
+    margin-top: 10px;
+    color: #fff; /* Color de texto blanco para mejor contraste */
+}
+
+/* Colores según el estado */
+.en-espera {
+    background-color: #FF9900; /* Naranja para en espera */
+}
+
+.lavado-exterior {
+    background-color: #4CAF50; /* Verde para lavado exterior */
+}
+
+.limpieza-interior {
+    background-color: #FF9800; /* Naranja fuerte para limpieza interior */
+}
+
+.secado {
+    background-color: #03A9F4; /* Azul para secado */
+}
+
+.listo {
+    background-color: #8BC34A; /* Verde claro para listo */
+}
+
+/* Barra de progreso */
+.progress-container {
+    margin-top: 20px;
+}
+
+progress {
+    width: 100%;
+    height: 20px;
+    border-radius: 5px;
+    background-color: #f0f0f0;
+}
+
+progress::-webkit-progress-bar {
+    background-color: #e0e0e0;
+    border-radius: 5px;
+}
+
+progress::-webkit-progress-value {
+    background-color: #1D70B8;
+    border-radius: 5px;
+}
+
+p {
+    font-size: 1rem;
+    color: #333;
+}
+
+/* Mejoras de estilo para el contador de vehículos */
+#vehicleCount {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #333;
+    margin-top: 10px;
+}
