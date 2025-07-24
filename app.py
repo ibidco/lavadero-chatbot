@@ -1,21 +1,21 @@
-from flask import Flask, request
+from flask import Flask, request, render_template_string, redirect, url_for
 from twilio.twiml.messaging_response import MessagingResponse
 import csv
 import os
 
 app = Flask(__name__)
 
-# Estado temporal de cada usuario
+# Estado temporal de conversaciones
 user_state = {}
 
-# Archivo CSV donde guardamos reservas
+# Archivo de reservas
 RESERVATIONS_FILE = "reservations.csv"
 
 # Crear CSV si no existe
 if not os.path.exists(RESERVATIONS_FILE):
     with open(RESERVATIONS_FILE, "w", newline="") as file:
         writer = csv.writer(file)
-        writer.writerow(["Phone", "Day", "Time", "Plate"])
+        writer.writerow(["Phone", "Day", "Time", "Plate", "Status"])
 
 def show_menu():
     return ("Bienvenido a *Lavadero Rápido* 🚗\n"
@@ -26,6 +26,7 @@ def show_menu():
             "Escribe el número de tu opción.\n"
             "En cualquier momento escribe 'Menú' para volver aquí.")
 
+# ----------- BOT DE WHATSAPP -----------
 @app.route("/whatsapp", methods=["POST"])
 def whatsapp():
     incoming_msg = request.values.get("Body", "").strip().lower()
@@ -34,13 +35,12 @@ def whatsapp():
     resp = MessagingResponse()
     msg = resp.message()
 
-    # Permitir volver al menú en cualquier momento
-    if incoming_msg == "menú" or incoming_msg == "menu":
+    # Volver al menú en cualquier momento
+    if incoming_msg in ["menú", "menu"]:
         user_state[from_number] = {"step": "menu"}
         msg.body(show_menu())
         return str(resp)
 
-    # Si no hay estado previo, iniciar en menú
     if from_number not in user_state:
         user_state[from_number] = {"step": "menu"}
         msg.body(show_menu())
@@ -48,7 +48,6 @@ def whatsapp():
 
     state = user_state[from_number]
 
-    # Flujo principal
     if state["step"] == "menu":
         if incoming_msg == "1":
             state["step"] = "day"
@@ -72,7 +71,6 @@ def whatsapp():
         msg.body("¿A qué hora deseas? Tenemos cupos entre 8:00 am y 5:00 pm (cada hora).")
 
     elif state["step"] == "time":
-        # Validación básica: hora debe contener un número
         if not any(char.isdigit() for char in incoming_msg):
             msg.body("Por favor ingresa una hora válida (ej: 10:00 am).")
             return str(resp)
@@ -93,7 +91,7 @@ def whatsapp():
         if incoming_msg in ["sí", "si"]:
             with open(RESERVATIONS_FILE, "a", newline="") as file:
                 writer = csv.writer(file)
-                writer.writerow([from_number, state["day"], state["time"], state["plate"]])
+                writer.writerow([from_number, state["day"], state["time"], state["plate"], "En espera"])
             msg.body("¡Tu cita ha sido reservada con éxito! ✅\nTe enviaremos un recordatorio antes de tu turno.\n\n" + show_menu())
             user_state[from_number] = {"step": "menu"}
         elif incoming_msg == "no":
@@ -104,11 +102,75 @@ def whatsapp():
 
     elif state["step"] == "check_status":
         plate = incoming_msg.upper()
-        # Aquí podrías integrar una base de datos real para el estado
         msg.body(f"El carro con placa {plate} está: *En proceso de lavado* 🧼\n\n" + show_menu())
         user_state[from_number] = {"step": "menu"}
 
     return str(resp)
+
+# ----------- PANEL ADMIN -----------
+@app.route("/admin")
+def admin_panel():
+    key = request.args.get("key")
+    if key != "1234":  # Contraseña básica
+        return "Acceso no autorizado. Agrega ?key=1234 en la URL."
+
+    reservations = []
+    with open(RESERVATIONS_FILE, "r") as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            reservations.append(row)
+
+    html = """
+    <h1>Panel de Reservas - Lavadero Rápido</h1>
+    <table border="1" cellpadding="5">
+        <tr>
+            <th>Teléfono</th><th>Día</th><th>Hora</th><th>Placa</th><th>Estado</th><th>Acciones</th>
+        </tr>
+        {% for r in reservations %}
+        <tr>
+            <td>{{ r['Phone'] }}</td>
+            <td>{{ r['Day'] }}</td>
+            <td>{{ r['Time'] }}</td>
+            <td>{{ r['Plate'] }}</td>
+            <td>{{ r['Status'] }}</td>
+            <td>
+                <a href="{{ url_for('update_status', phone=r['Phone'], status='En espera', key=key) }}">En espera</a> |
+                <a href="{{ url_for('update_status', phone=r['Phone'], status='En lavado', key=key) }}">En lavado</a> |
+                <a href="{{ url_for('update_status', phone=r['Phone'], status='Listo', key=key) }}">Listo</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    """
+    return render_template_string(html, reservations=reservations, key=key)
+
+# ----------- RUTA PARA CAMBIAR ESTADO -----------
+@app.route("/update_status")
+def update_status():
+    key = request.args.get("key")
+    if key != "1234":
+        return "Acceso no autorizado."
+
+    phone = request.args.get("phone")
+    new_status = request.args.get("status")
+
+    # Leer y actualizar el CSV
+    rows = []
+    with open(RESERVATIONS_FILE, "r") as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            if row["Phone"] == phone:
+                row["Status"] = new_status
+            rows.append(row)
+
+    # Escribir de nuevo el CSV actualizado
+    with open(RESERVATIONS_FILE, "w", newline="") as file:
+        fieldnames = ["Phone", "Day", "Time", "Plate", "Status"]
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    return redirect(url_for("admin_panel", key=key))
 
 if __name__ == "__main__":
     app.run(port=5000, debug=True)
